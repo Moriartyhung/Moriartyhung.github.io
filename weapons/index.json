@@ -1,1 +1,4 @@
-00
+[
+  {"id":"staves","name":"手杖"},
+  {"id":"colossal","name":"特大武器"}
+]
