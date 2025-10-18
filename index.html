@@ -49,11 +49,27 @@
     #nextBtn{right:-56px;}
     .closebtn{top:-14px; right:-14px; transform:none; width:36px; height:36px;}
 
+    /* 武器區 */
+    .toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0 14px;}
+    .inp,.sel{padding:10px 12px; border:1px solid #cfcfcf; border-radius:10px; background:#fff;}
+    #wpnCat{ display:none; }  /* 只做一類時直接藏起來 */
+    .weapon-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px;}
+    .weapon-card{border:1px solid #ddd; border-radius:14px; padding:12px; background:#fafafa; display:flex; gap:12px; align-items:flex-start;}
+    .weapon-card img{width:90px; height:90px; object-fit:cover; border-radius:10px; flex:0 0 90px;}
+    .weapon-card h4{margin:0 0 6px 0; font-size:18px;}
+    .weapon-card .meta{font-size:13px; opacity:.85}
+    .pick{display:flex; align-items:center; gap:6px; margin-top:6px; font-size:13px;}
+    .compare{margin-top:16px; border:1px solid #ddd; border-radius:14px; padding:12px; background:#fafafa;}
+    .cmp-table{width:100%; border-collapse:collapse; font-size:14px;}
+    .cmp-table th,.cmp-table td{border-top:1px solid #e5e5e5; padding:8px 6px; text-align:left;}
+    .muted{opacity:.7}
+
     @media (prefers-color-scheme: dark){
       body{ background:#0f0f10; color:#eaeaea; }
       code{ background:#2a2a2b; color:#eee; }
       button{ background:#1f1f20; color:#fff; border-color:#3a3a3b; }
-      #box,#todoBox,#localBox{ background:#161617; border-color:#2d2d2e; color:#eaeaea; }
+      #box,#todoBox,#localBox,.weapon-card,.compare{ background:#161617; border-color:#2d2d2e; color:#eaeaea; }
+      .inp,.sel{ background:#0f0f10; color:#eaeaea; border-color:#2d2d2e; }
     }
   </style>
 </head>
@@ -67,7 +83,7 @@
     <div id="galGrid" class="gal-grid"></div>
   </section>
 
-  <!-- 放大檢視（帶 上一張/下一張/關閉） -->
+  <!-- 放大檢視 -->
   <div id="galOverlay" class="overlay">
     <div class="inner">
       <div id="prevBtn" class="navbtn" aria-label="上一張">‹</div>
@@ -77,6 +93,23 @@
       <p id="galCap"></p>
     </div>
   </div>
+
+  <hr>
+
+  <!-- 特大武器 -->
+  <section id="weapons">
+    <h2>特大武器</h2>
+    <div class="toolbar">
+      <select id="wpnCat" class="sel" aria-label="武器分類"></select>
+      <input id="wpnSearch" class="inp" type="search" placeholder="搜尋名稱/備註">
+    </div>
+    <div id="wpnGrid" class="weapon-grid"></div>
+    <div id="wpnCompare" class="compare" style="display:none;">
+      <h3 style="margin:0 0 8px 0;">比較</h3>
+      <table class="cmp-table" id="cmpTable"></table>
+      <p class="muted" style="margin-top:6px;">提示：勾選卡片上的「加入比較」，最多兩把。</p>
+    </div>
+  </section>
 
   <hr>
 
@@ -99,9 +132,7 @@
 
   <script>
     /* ===== 畫廊：載入清單並渲染縮圖 ===== */
-    let GALLERY = [];      // 全部清單
-    let CUR_INDEX = -1;    // 目前索引
-
+    let GALLERY = [], CUR_INDEX = -1;
     $.getJSON("./gallery.json").done(function(list){
       GALLERY = list;
       const $g = $("#galGrid");
@@ -116,50 +147,153 @@
       $("#galGrid").html("載入 gallery.json 失敗，請檢查路徑。");
     });
 
-    /* 顯示指定索引的大圖（含容錯與預載下一張） */
     function showImage(i){
       if(!GALLERY.length) return;
-      // 讓索引在 0..n-1 之間循環
       CUR_INDEX = (i + GALLERY.length) % GALLERY.length;
       const item = GALLERY[CUR_INDEX];
       const cap  = item.caption || "";
-
-      function openWith(url, note){
-        $("#galBig").attr("src", url);
-        $("#galCap").text(note ? `${cap} · ${note}` : cap);
-        $("#galOverlay").css("display","flex").hide().fadeIn(120);
-      }
-
-      // 先顯示遮罩避免沒反應
       $("#galOverlay").css("display","flex").hide().fadeIn(60);
-
-      // 嘗試載入大圖，失敗時用縮圖退回
       const big = new Image();
-      big.onload = function(){ openWith(item.full); };
-      big.onerror = function(){ openWith(item.thumb, "載入大圖失敗，顯示縮圖"); };
+      big.onload = ()=>{ $("#galBig").attr("src", item.full); $("#galCap").text(cap); };
+      big.onerror = ()=>{ $("#galBig").attr("src", item.thumb); $("#galCap").text(cap ? cap+" · 載入大圖失敗，顯示縮圖" : "載入大圖失敗，顯示縮圖");};
       big.src = item.full;
-
-      // 預載下一張，翻頁更順
-      const next = new Image();
-      next.src = GALLERY[(CUR_INDEX+1)%GALLERY.length].full;
+      const n = new Image(); n.src = GALLERY[(CUR_INDEX+1)%GALLERY.length].full;
     }
-
-    /* 事件：點縮圖開啟、上一張/下一張/關閉、鍵盤左右鍵 */
-    $(document).on("click","#galGrid img",function(){
-      const idx = Number($(this).data("idx"));
-      showImage(idx);
-    });
+    $(document).on("click","#galGrid img",function(){ showImage(Number($(this).data("idx"))); });
     $("#prevBtn").on("click", ()=> showImage(CUR_INDEX-1));
     $("#nextBtn").on("click", ()=> showImage(CUR_INDEX+1));
     $("#closeBtn").on("click", ()=> $("#galOverlay").fadeOut(120));
-    $("#galOverlay").on("click", function(e){ if(e.target===this) $(this).fadeOut(120); });
-    $(document).on("keydown", function(e){
-      if ($("#galOverlay").is(":visible")) {
-        if (e.key === "Escape") $("#galOverlay").fadeOut(120);
-        if (e.key === "ArrowLeft")  showImage(CUR_INDEX-1);
-        if (e.key === "ArrowRight") showImage(CUR_INDEX+1);
-      }
+    $("#galOverlay").on("click", e=>{ if(e.target===e.currentTarget) $("#galOverlay").fadeOut(120); });
+    $(document).on("keydown", e=>{
+      if(!$("#galOverlay").is(":visible")) return;
+      if(e.key==="Escape") $("#galOverlay").fadeOut(120);
+      if(e.key==="ArrowLeft") showImage(CUR_INDEX-1);
+      if(e.key==="ArrowRight") showImage(CUR_INDEX+1);
     });
+
+    /* ===== 武器：分類/搜尋/渲染/比較 ===== */
+    let WPN_INDEX = [], WPN_LIST = [], CMP_IDS = [];
+
+    // 讀 index.json 產生分類選單（雖然被藏起來，但流程不變）
+    $.getJSON("./weapons/index.json").done(function(cats){
+      WPN_INDEX = cats;
+      const $sel = $("#wpnCat").empty();
+      cats.forEach(c => $sel.append(`<option value="${c.id}">${c.name}</option>`));
+      if (cats.length) loadCategory(cats[0].id);
+    }).fail(function(){
+      $("#wpnGrid").html("載入 weapons/index.json 失敗。");
+    });
+
+    $("#wpnCat").on("change", function(){ loadCategory(this.value); });
+
+    function loadCategory(catId){
+      $("#wpnGrid").html("載入中...");
+      CMP_IDS = [];
+      $("#wpnCompare").hide();
+      $.getJSON(`./weapons/${catId}.json`).done(function(list){
+        WPN_LIST = list;
+        renderWeapons();
+      }).fail(function(){
+        $("#wpnGrid").html("載入分類資料失敗。");
+      });
+    }
+
+    // 支援你把「秘法」寫成「感應」
+    function getArcane(obj){
+      if(!obj) return 0;
+      return obj["秘法"] ?? obj["感應"] ?? 0;
+    }
+    function getArcScale(obj){
+      if(!obj) return "—";
+      return obj["秘法"] ?? obj["感應"] ?? "—";
+    }
+
+    $("#wpnSearch").on("input", renderWeapons);
+
+    function renderWeapons(){
+      const q = $("#wpnSearch").val()?.trim();
+      const list = !q ? WPN_LIST : WPN_LIST.filter(w =>
+        (w.name||"").includes(q) || (w["備註"]||"").includes(q)
+      );
+
+      const $g = $("#wpnGrid").empty();
+      if(!list.length){ $g.html("沒有符合的武器。"); return; }
+
+      list.forEach(w=>{
+        const req = w["能力需求"]||{};
+        const sca = w["補正"]||{};
+        const arcReq = getArcane(req), arcSca = getArcScale(sca);
+
+        const card = $(`
+          <div class="weapon-card" data-id="${w.id}">
+            <img loading="lazy" src="${w.image}" alt="${w.name||w.id}">
+            <div class="info">
+              <h4>${w.name||w.id}</h4>
+              <div class="meta">
+                重量：${w["重量"] ?? 0}｜
+                力${req["力量"]??0} 敏${req["敏捷"]??0} 智${req["智力"]??0} 信${req["信仰"]??0} 感/秘${arcReq}
+                <br>
+                補正：力${sca["力量"]||"—"} 敏${sca["敏捷"]||"—"} 智${sca["智力"]||"—"} 信${sca["信仰"]||"—"} 感/秘${arcSca}
+                ${w["戰技"] ? ("｜戰技："+w["戰技"]) : ""}
+              </div>
+              ${w["備註"] ? `<div class="meta">${w["備註"]}</div>` : ""}
+              <label class="pick"><input type="checkbox" class="cmpChk"> 加入比較</label>
+            </div>
+          </div>
+        `);
+        $g.append(card);
+      });
+    }
+
+    $(document).on("change",".cmpChk", function(){
+      const id = $(this).closest(".weapon-card").data("id");
+      if(this.checked){
+        if(CMP_IDS.length >= 2){
+          this.checked = false;
+          alert("一次最多比較兩把。");
+          return;
+        }
+        CMP_IDS.push(id);
+      }else{
+        CMP_IDS = CMP_IDS.filter(x => x!==id);
+      }
+      renderCompare();
+    });
+
+    function renderCompare(){
+      if(CMP_IDS.length < 2){ $("#wpnCompare").hide(); $("#cmpTable").empty(); return; }
+      const [aId,bId] = CMP_IDS;
+      const a = WPN_LIST.find(x=>x.id===aId);
+      const b = WPN_LIST.find(x=>x.id===bId);
+      if(!a || !b) return;
+
+      const aReq=a["能力需求"]||{}, bReq=b["能力需求"]||{};
+      const aSca=a["補正"]||{}, bSca=b["補正"]||{};
+      const aArcReq=getArcane(aReq), bArcReq=getArcane(bReq);
+      const aArcSca=getArcScale(aSca), bArcSca=getArcScale(bSca);
+      const aSta=a["異常"]||{}, bSta=b["異常"]||{};
+
+      const rows = [
+        ["名稱", a.name||a.id, b.name||b.id],
+        ["重量", a["重量"]??0, b["重量"]??0],
+        ["能力需求",
+          `力${aReq["力量"]??0} 敏${aReq["敏捷"]??0} 智${aReq["智力"]??0} 信${aReq["信仰"]??0} 感/秘${aArcReq}`,
+          `力${bReq["力量"]??0} 敏${bReq["敏捷"]??0} 智${bReq["智力"]??0} 信${bReq["信仰"]??0} 感/秘${bArcReq}`],
+        ["補正",
+          `力${aSca["力量"]||"—"} 敏${aSca["敏捷"]||"—"} 智${aSca["智力"]||"—"} 信${aSca["信仰"]||"—"} 感/秘${aArcSca}`,
+          `力${bSca["力量"]||"—"} 敏${bSca["敏捷"]||"—"} 智${bSca["智力"]||"—"} 信${bSca["信仰"]||"—"} 感/秘${bArcSca}`],
+        ["戰技", a["戰技"]||"—", b["戰技"]||"—"],
+        ["異常",
+          `出血${aSta["出血"]??0} 凍傷${aSta["凍傷"]??0} 中毒${aSta["中毒"]??0} 腐敗${aSta["腐敗"]??0}`,
+          `出血${bSta["出血"]??0} 凍傷${bSta["凍傷"]??0} 中毒${bSta["中毒"]??0} 腐敗${bSta["腐敗"]??0}`],
+        ["備註", a["備註"]||"—", b["備註"]||"—"]
+      ];
+
+      const $t = $("#cmpTable").empty();
+      $t.append(`<tr><th></th><th>${a.name||a.id}</th><th>${b.name||b.id}</th></tr>`);
+      rows.forEach(r=> $t.append(`<tr><th>${r[0]}</th><td>${r[1]}</td><td>${r[2]}</td></tr>`));
+      $("#wpnCompare").show();
+    }
 
     /* ===== 原本的 jQuery / AJAX 區 ===== */
     $("#btn").on("click", function () {
@@ -169,18 +303,17 @@
     $("#loadTodo").on("click", function () {
       $("#todoBox").text("載入中...");
       $.getJSON("https://jsonplaceholder.typicode.com/todos/1")
-        .done(function (data) { $("#todoBox").text(JSON.stringify(data, null, 2)); })
-        .fail(function () { $("#todoBox").text("載入失敗。"); });
+        .done(data => $("#todoBox").text(JSON.stringify(data, null, 2)))
+        .fail(() => $("#todoBox").text("載入失敗。"));
     });
 
     $("#loadLocal").on("click", function () {
       $("#localBox").text("載入中...");
       $.getJSON("./data.json")
-        .done(function (data) { $("#localBox").text(JSON.stringify(data, null, 2)); })
-        .fail(function () { $("#localBox").text("載入失敗。"); });
+        .done(data => $("#localBox").text(JSON.stringify(data, null, 2)))
+        .fail(() => $("#localBox").text("載入失敗。"));
     });
   </script>
 </body>
 </html>
-
 
