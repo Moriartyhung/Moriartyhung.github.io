@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Moriartyhung · Elden Ring</title>
+  <title>Moriartyhung · Elden Ring · 大劍</title>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <style>
     :root { color-scheme: light dark; }
@@ -52,7 +52,7 @@
     /* 武器區 */
     .toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0 14px;}
     .inp,.sel{padding:10px 12px; border:1px solid #cfcfcf; border-radius:10px; background:#fff;}
-    #wpnCat{ display:none; }  /* 只做一類時直接藏起來 */
+    #wpnCat{ display:none; }  /* 只做一類，選單藏起來 */
     .weapon-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px;}
     .weapon-card{border:1px solid #ddd; border-radius:14px; padding:12px; background:#fafafa; display:flex; gap:12px; align-items:flex-start;}
     .weapon-card img{width:90px; height:90px; object-fit:cover; border-radius:10px; flex:0 0 90px;}
@@ -96,12 +96,12 @@
 
   <hr>
 
-  <!-- 特大武器 -->
+  <!-- 大劍 -->
   <section id="weapons">
-    <h2>特大武器</h2>
+    <h2>大劍</h2>
     <div class="toolbar">
       <select id="wpnCat" class="sel" aria-label="武器分類"></select>
-      <input id="wpnSearch" class="inp" type="search" placeholder="搜尋名稱/備註">
+      <input id="wpnSearch" class="inp" type="search" placeholder="搜尋名稱/評價">
     </div>
     <div id="wpnGrid" class="weapon-grid"></div>
     <div id="wpnCompare" class="compare" style="display:none;">
@@ -174,7 +174,7 @@
     /* ===== 武器：分類/搜尋/渲染/比較 ===== */
     let WPN_INDEX = [], WPN_LIST = [], CMP_IDS = [];
 
-    // 讀 index.json 產生分類選單（雖然被藏起來，但流程不變）
+    // 讀 index.json 產生分類選單（只有一類，選單藏起來也照流程）
     $.getJSON("./weapons/index.json").done(function(cats){
       WPN_INDEX = cats;
       const $sel = $("#wpnCat").empty();
@@ -213,7 +213,7 @@
     function renderWeapons(){
       const q = $("#wpnSearch").val()?.trim();
       const list = !q ? WPN_LIST : WPN_LIST.filter(w =>
-        (w.name||"").includes(q) || (w["備註"]||"").includes(q)
+        (w.name||"").includes(q) || (w["評價"]||w["備註"]||"").includes(q)
       );
 
       const $g = $("#wpnGrid").empty();
@@ -236,7 +236,7 @@
                 補正：力${sca["力量"]||"—"} 敏${sca["敏捷"]||"—"} 智${sca["智力"]||"—"} 信${sca["信仰"]||"—"} 感/秘${arcSca}
                 ${w["戰技"] ? ("｜戰技："+w["戰技"]) : ""}
               </div>
-              ${w["備註"] ? `<div class="meta">${w["備註"]}</div>` : ""}
+              ${w["評價"] ? `<div class="meta">${w["評價"]}</div>` : (w["備註"] ? `<div class="meta">${w["備註"]}</div>` : "")}
               <label class="pick"><input type="checkbox" class="cmpChk"> 加入比較</label>
             </div>
           </div>
@@ -286,7 +286,7 @@
         ["異常",
           `出血${aSta["出血"]??0} 凍傷${aSta["凍傷"]??0} 中毒${aSta["中毒"]??0} 腐敗${aSta["腐敗"]??0}`,
           `出血${bSta["出血"]??0} 凍傷${bSta["凍傷"]??0} 中毒${bSta["中毒"]??0} 腐敗${bSta["腐敗"]??0}`],
-        ["備註", a["備註"]||"—", b["備註"]||"—"]
+        ["評價", a["評價"]||a["備註"]||"—", b["評價"]||b["備註"]||"—"]
       ];
 
       const $t = $("#cmpTable").empty();
