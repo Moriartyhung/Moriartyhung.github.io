@@ -55,7 +55,10 @@
     #wpnCat{ display:none; }  /* 只做一類，選單藏起來 */
     .weapon-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px;}
     .weapon-card{border:1px solid #ddd; border-radius:14px; padding:12px; background:#fafafa; display:flex; gap:12px; align-items:flex-start;}
-    .weapon-card img{width:90px; height:90px; object-fit:cover; border-radius:10px; flex:0 0 90px;}
+    .weapon-card img{
+      width:90px; height:90px; object-fit:cover; border-radius:10px; flex:0 0 90px;
+      cursor: zoom-in; /* NEW: 顯示可放大 */
+    }
     .weapon-card h4{margin:0 0 6px 0; font-size:18px;}
     .weapon-card .meta{font-size:13px; opacity:.85}
     .pick{display:flex; align-items:center; gap:6px; margin-top:6px; font-size:13px;}
@@ -133,6 +136,7 @@
   <script>
     /* ===== 畫廊：載入清單並渲染縮圖 ===== */
     let GALLERY = [], CUR_INDEX = -1;
+
     $.getJSON("./gallery.json").done(function(list){
       GALLERY = list;
       const $g = $("#galGrid");
@@ -147,18 +151,27 @@
       $("#galGrid").html("載入 gallery.json 失敗，請檢查路徑。");
     });
 
+    // NEW: 通用開啟 overlay（withNav: 是否顯示左右鍵）
+    function openOverlay(src, caption, withNav=true){
+      $("#galBig").attr("src", "");
+      $("#galCap").text("");
+      $("#galOverlay").css("display","flex").hide().fadeIn(60);
+      $("#prevBtn, #nextBtn").css("display", withNav ? "" : "none");
+      const img = new Image();
+      img.onload = ()=>{ $("#galBig").attr("src", src); $("#galCap").text(caption||""); };
+      img.onerror = ()=>{ $("#galBig").attr("src", src); $("#galCap").text((caption?caption+" · ":"")+"載入失敗"); };
+      img.src = src;
+    }
+
     function showImage(i){
       if(!GALLERY.length) return;
       CUR_INDEX = (i + GALLERY.length) % GALLERY.length;
       const item = GALLERY[CUR_INDEX];
       const cap  = item.caption || "";
-      $("#galOverlay").css("display","flex").hide().fadeIn(60);
-      const big = new Image();
-      big.onload = ()=>{ $("#galBig").attr("src", item.full); $("#galCap").text(cap); };
-      big.onerror = ()=>{ $("#galBig").attr("src", item.thumb); $("#galCap").text(cap ? cap+" · 載入大圖失敗，顯示縮圖" : "載入大圖失敗，顯示縮圖");};
-      big.src = item.full;
-      const n = new Image(); n.src = GALLERY[(CUR_INDEX+1)%GALLERY.length].full;
+      openOverlay(item.full, cap, true);             // NEW: 用通用函式
+      const n = new Image(); n.src = GALLERY[(CUR_INDEX+1)%GALLERY.length].full; // 預載下一張
     }
+
     $(document).on("click","#galGrid img",function(){ showImage(Number($(this).data("idx"))); });
     $("#prevBtn").on("click", ()=> showImage(CUR_INDEX-1));
     $("#nextBtn").on("click", ()=> showImage(CUR_INDEX+1));
@@ -167,14 +180,13 @@
     $(document).on("keydown", e=>{
       if(!$("#galOverlay").is(":visible")) return;
       if(e.key==="Escape") $("#galOverlay").fadeOut(120);
-      if(e.key==="ArrowLeft") showImage(CUR_INDEX-1);
-      if(e.key==="ArrowRight") showImage(CUR_INDEX+1);
+      if(e.key==="ArrowLeft")  $("#prevBtn").is(":visible") && showImage(CUR_INDEX-1);
+      if(e.key==="ArrowRight") $("#nextBtn").is(":visible") && showImage(CUR_INDEX+1);
     });
 
     /* ===== 武器：分類/搜尋/渲染/比較 ===== */
     let WPN_INDEX = [], WPN_LIST = [], CMP_IDS = [];
 
-    // 讀 index.json 產生分類選單（只有一類，選單藏起來也照流程）
     $.getJSON("./weapons/index.json").done(function(cats){
       WPN_INDEX = cats;
       const $sel = $("#wpnCat").empty();
@@ -198,15 +210,8 @@
       });
     }
 
-    // 支援你把「秘法」寫成「感應」
-    function getArcane(obj){
-      if(!obj) return 0;
-      return obj["秘法"] ?? obj["感應"] ?? 0;
-    }
-    function getArcScale(obj){
-      if(!obj) return "—";
-      return obj["秘法"] ?? obj["感應"] ?? "—";
-    }
+    function getArcane(obj){ return obj ? (obj["秘法"] ?? obj["感應"] ?? 0) : 0; }
+    function getArcScale(obj){ return obj ? (obj["秘法"] ?? obj["感應"] ?? "—") : "—"; }
 
     $("#wpnSearch").on("input", renderWeapons);
 
@@ -244,6 +249,14 @@
         $g.append(card);
       });
     }
+
+    // NEW: 點「武器圖片」開浮層（單張，不顯示左右切換）
+    $(document).on("click", ".weapon-card img", function(){
+      const src  = $(this).attr("src");
+      const name = $(this).closest(".weapon-card").find("h4").text();
+      CUR_INDEX = -1;                  // 表示不是畫廊，不用左右切
+      openOverlay(src, name, false);   // withNav=false 隱藏左右鍵
+    });
 
     $(document).on("change",".cmpChk", function(){
       const id = $(this).closest(".weapon-card").data("id");
