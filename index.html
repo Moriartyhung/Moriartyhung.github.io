@@ -30,7 +30,11 @@
     .cover{width:100%; border-radius:14px; display:block; margin:10px 0 18px;}
     .gal-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;}
     .gal-grid img{width:100%; border-radius:12px; cursor:pointer;}
-    .overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.75); z-index:9999; padding:20px;}
+    .overlay{
+      position:fixed; inset:0; display:none; /* 由 JS 切換成 flex */
+      align-items:center; justify-content:center;
+      background:rgba(0,0,0,.78); z-index:9999; padding:20px;
+    }
     .overlay .inner{max-width:92vw; max-height:92vh; text-align:center;}
     .overlay img{max-width:92vw; max-height:80vh; border-radius:12px; display:block; margin:0 auto;}
     .overlay p{color:#fff; margin-top:10px; opacity:.9}
@@ -64,7 +68,7 @@
 
   <hr>
 
-  <!-- 下面是原本作業要求的 jQuery/AJAX 區，保留不動 -->
+  <!-- 作業要求的 jQuery/AJAX 區，保留 -->
   <h1>我的 GitHub 個人頁</h1>
   <p>這頁面部署在 <code>Moriartyhung.github.io</code>。下面先放一個最基本的 jQuery 功能。</p>
 
@@ -95,9 +99,14 @@
 
     /* 畫廊：點縮圖放大、點遮罩關閉、ESC 關閉 */
     $(document).on("click","#galGrid img",function(){
-      $("#galBig").attr("src", $(this).data("full"));
-      $("#galCap").text($(this).data("cap") || "");
-      $("#galOverlay").fadeIn(150);
+      const full = $(this).data("full");
+      const cap  = $(this).data("cap") || "";
+      $("#galBig").off("error").attr("src", full).on("error", function(){
+        $("#galCap").text("圖片載入失敗");
+      });
+      $("#galCap").text(cap);
+      // 重要：用 flex 顯示，避免只有變暗沒顯圖
+      $("#galOverlay").css("display","flex").hide().fadeIn(150);
     });
     $("#galOverlay").on("click",function(e){
       if(e.target===this) $(this).fadeOut(120);
