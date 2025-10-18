@@ -6,7 +6,6 @@
   <title>Moriartyhung · Elden Ring</title>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <style>
-    /* 深淺色處理 */
     :root { color-scheme: light dark; }
     body{
       font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans TC",sans-serif;
@@ -20,31 +19,41 @@
       padding: 10px 16px; border: 1px solid #cfcfcf; border-radius: 10px; cursor: pointer;
       background: #f8f8f8; color:#111; font-weight: 600;
     }
-    #box, #todoBox, #localBox{
+    #box,#todoBox,#localBox{
       padding: 14px; border: 1px solid #e5e5e5; border-radius: 10px; background: #fafafa;
       white-space: pre-wrap; overflow: auto; color:#111;
     }
     hr{ margin: 28px 0; }
 
-    /* 封面與畫廊樣式 */
+    /* 封面與畫廊 */
     .cover{width:100%; border-radius:14px; display:block; margin:10px 0 18px;}
     .gal-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;}
     .gal-grid img{width:100%; border-radius:12px; cursor:pointer;}
+
+    /* Lightbox */
     .overlay{
-      position:fixed; inset:0; display:none; /* 由 JS 切換成 flex */
+      position:fixed; inset:0; display:none; /* JS 會切到 flex */
       align-items:center; justify-content:center;
       background:rgba(0,0,0,.78); z-index:9999; padding:20px;
     }
-    .overlay .inner{max-width:92vw; max-height:92vh; text-align:center;}
+    .overlay .inner{position:relative; max-width:92vw; max-height:92vh; text-align:center;}
     .overlay img{max-width:92vw; max-height:80vh; border-radius:12px; display:block; margin:0 auto;}
     .overlay p{color:#fff; margin-top:10px; opacity:.9}
+    .navbtn,.closebtn{
+      position:absolute; top:50%; transform:translateY(-50%);
+      background:rgba(0,0,0,.5); color:#fff; border:1px solid #666;
+      border-radius:999px; width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+      cursor:pointer; user-select:none;
+    }
+    #prevBtn{left:-56px;}
+    #nextBtn{right:-56px;}
+    .closebtn{top:-14px; right:-14px; transform:none; width:36px; height:36px;}
 
-    /* 深色模式 */
     @media (prefers-color-scheme: dark){
       body{ background:#0f0f10; color:#eaeaea; }
       code{ background:#2a2a2b; color:#eee; }
       button{ background:#1f1f20; color:#fff; border-color:#3a3a3b; }
-      #box, #todoBox, #localBox{ background:#161617; border-color:#2d2d2e; color:#eaeaea; }
+      #box,#todoBox,#localBox{ background:#161617; border-color:#2d2d2e; color:#eaeaea; }
     }
   </style>
 </head>
@@ -58,9 +67,12 @@
     <div id="galGrid" class="gal-grid"></div>
   </section>
 
-  <!-- 放大檢視 -->
+  <!-- 放大檢視（帶 上一張/下一張/關閉） -->
   <div id="galOverlay" class="overlay">
     <div class="inner">
+      <div id="prevBtn" class="navbtn" aria-label="上一張">‹</div>
+      <div id="nextBtn" class="navbtn" aria-label="下一張">›</div>
+      <div id="closeBtn" class="closebtn" aria-label="關閉">✕</div>
       <img id="galBig" alt="">
       <p id="galCap"></p>
     </div>
@@ -68,7 +80,7 @@
 
   <hr>
 
-  <!-- 作業要求的 jQuery/AJAX 區，保留 -->
+  <!-- 原本作業區保留 -->
   <h1>我的 GitHub 個人頁</h1>
   <p>這頁面部署在 <code>Moriartyhung.github.io</code>。下面先放一個最基本的 jQuery 功能。</p>
 
@@ -86,41 +98,74 @@
   <pre id="localBox">尚未載入</pre>
 
   <script>
-    /* 畫廊：載入清單並渲染縮圖 */
+    /* ===== 畫廊：載入清單並渲染縮圖 ===== */
+    let GALLERY = [];      // 全部清單
+    let CUR_INDEX = -1;    // 目前索引
+
     $.getJSON("./gallery.json").done(function(list){
+      GALLERY = list;
       const $g = $("#galGrid");
-      list.forEach(item=>{
-        const $img = $(`<img src="${item.thumb}" alt="${item.title}" data-full="${item.full}" data-cap="${item.caption}">`);
+      list.forEach((item, idx)=>{
+        const $img = $(
+          `<img loading="lazy" src="${item.thumb}" alt="${item.title}"
+                data-idx="${idx}" data-full="${item.full}" data-cap="${item.caption}">`
+        );
         $g.append($img);
       });
     }).fail(function(){
       $("#galGrid").html("載入 gallery.json 失敗，請檢查路徑。");
     });
 
-    /* 畫廊：點縮圖放大、點遮罩關閉、ESC 關閉 */
+    /* 顯示指定索引的大圖（含容錯與預載下一張） */
+    function showImage(i){
+      if(!GALLERY.length) return;
+      // 讓索引在 0..n-1 之間循環
+      CUR_INDEX = (i + GALLERY.length) % GALLERY.length;
+      const item = GALLERY[CUR_INDEX];
+      const cap  = item.caption || "";
+
+      function openWith(url, note){
+        $("#galBig").attr("src", url);
+        $("#galCap").text(note ? `${cap} · ${note}` : cap);
+        $("#galOverlay").css("display","flex").hide().fadeIn(120);
+      }
+
+      // 先顯示遮罩避免沒反應
+      $("#galOverlay").css("display","flex").hide().fadeIn(60);
+
+      // 嘗試載入大圖，失敗時用縮圖退回
+      const big = new Image();
+      big.onload = function(){ openWith(item.full); };
+      big.onerror = function(){ openWith(item.thumb, "載入大圖失敗，顯示縮圖"); };
+      big.src = item.full;
+
+      // 預載下一張，翻頁更順
+      const next = new Image();
+      next.src = GALLERY[(CUR_INDEX+1)%GALLERY.length].full;
+    }
+
+    /* 事件：點縮圖開啟、上一張/下一張/關閉、鍵盤左右鍵 */
     $(document).on("click","#galGrid img",function(){
-      const full = $(this).data("full");
-      const cap  = $(this).data("cap") || "";
-      $("#galBig").off("error").attr("src", full).on("error", function(){
-        $("#galCap").text("圖片載入失敗");
-      });
-      $("#galCap").text(cap);
-      // 重要：用 flex 顯示，避免只有變暗沒顯圖
-      $("#galOverlay").css("display","flex").hide().fadeIn(150);
+      const idx = Number($(this).data("idx"));
+      showImage(idx);
     });
-    $("#galOverlay").on("click",function(e){
-      if(e.target===this) $(this).fadeOut(120);
-    });
-    $(document).on("keydown",function(e){
-      if(e.key==="Escape") $("#galOverlay").fadeOut(120);
+    $("#prevBtn").on("click", ()=> showImage(CUR_INDEX-1));
+    $("#nextBtn").on("click", ()=> showImage(CUR_INDEX+1));
+    $("#closeBtn").on("click", ()=> $("#galOverlay").fadeOut(120));
+    $("#galOverlay").on("click", function(e){ if(e.target===this) $(this).fadeOut(120); });
+    $(document).on("keydown", function(e){
+      if ($("#galOverlay").is(":visible")) {
+        if (e.key === "Escape") $("#galOverlay").fadeOut(120);
+        if (e.key === "ArrowLeft")  showImage(CUR_INDEX-1);
+        if (e.key === "ArrowRight") showImage(CUR_INDEX+1);
+      }
     });
 
-    /* jQuery 互動：點一下就改文字 */
+    /* ===== 原本的 jQuery / AJAX 區 ===== */
     $("#btn").on("click", function () {
       $("#box").text("jQuery 作用中，作業可驗收。");
     });
 
-    /* AJAX：取得外部 JSON 並顯示 */
     $("#loadTodo").on("click", function () {
       $("#todoBox").text("載入中...");
       $.getJSON("https://jsonplaceholder.typicode.com/todos/1")
@@ -128,7 +173,6 @@
         .fail(function () { $("#todoBox").text("載入失敗。"); });
     });
 
-    /* AJAX：從倉庫中的 data.json 載入並顯示 */
     $("#loadLocal").on("click", function () {
       $("#localBox").text("載入中...");
       $.getJSON("./data.json")
@@ -138,4 +182,5 @@
   </script>
 </body>
 </html>
+
 
