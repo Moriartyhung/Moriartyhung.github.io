@@ -1,0 +1,28 @@
+[
+  {
+    "id": "grafted_blade_greatsword",
+    "name": "接肢大劍",
+    "class": "colossal",
+    "image": "images/weapons/colossal/grafted_blade_greatsword.jpg",
+    "weight": 21.0,
+    "requirements": {"str": 40, "dex": 14, "int": 0, "fai": 0, "arc": 0},
+    "scaling": {"str": "B", "dex": "E", "int": "—", "fai": "—", "arc": "—"},
+    "skill": "君王之劍",
+    "infusions": ["Standard"],
+    "status": {"bleed": 0, "frost": 0, "poison": 0, "rot": 0},
+    "notes": "純力量路線，重擊破姿強。"
+  },
+  {
+    "id": "greatsword",
+    "name": "巨劍",
+    "class": "colossal",
+    "image": "images/weapons/colossal/greatsword.jpg",
+    "weight": 23.0,
+    "requirements": {"str": 31, "dex": 12, "int": 0, "fai": 0, "arc": 0},
+    "scaling": {"str": "B", "dex": "D", "int": "—", "fai": "—", "arc": "—"},
+    "skill": "獅子斬",
+    "infusions": ["Standard","Heavy"],
+    "status": {"bleed": 0, "frost": 0, "poison": 0, "rot": 0},
+    "notes": "經典大劍，泛用且好強化。"
+  }
+]
