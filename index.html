@@ -17,9 +17,10 @@
       padding: 10px 16px; border: 1px solid #cfcfcf; border-radius: 10px; cursor: pointer;
       background: #f8f8f8;
     }
-    #box, #todoBox{
+    #box, #todoBox, #localBox{
       padding: 14px; border: 1px solid #e5e5e5; border-radius: 10px; background: #fafafa;
       white-space: pre-wrap;
+      overflow: auto;
     }
     hr{ margin: 28px 0; }
   </style>
@@ -37,13 +38,17 @@
   <p><button id="loadTodo">載入 Todo</button></p>
   <pre id="todoBox">尚未載入</pre>
 
+  <h3>載入本地 data.json</h3>
+  <p><button id="loadLocal">載入本地 JSON</button></p>
+  <pre id="localBox">尚未載入</pre>
+
   <script>
     // jQuery 互動：點一下就改文字
     $("#btn").on("click", function () {
       $("#box").text("jQuery 作用中，作業可驗收。");
     });
 
-    // AJAX：取得 JSON 並顯示
+    // AJAX：取得外部 JSON 並顯示
     $("#loadTodo").on("click", function () {
       $("#todoBox").text("載入中...");
       $.getJSON("https://jsonplaceholder.typicode.com/todos/1")
@@ -52,6 +57,18 @@
         })
         .fail(function () {
           $("#todoBox").text("載入失敗。");
+        });
+    });
+
+    // AJAX：從倉庫中的 data.json 載入並顯示
+    $("#loadLocal").on("click", function () {
+      $("#localBox").text("載入中...");
+      $.getJSON("./data.json")
+        .done(function (data) {
+          $("#localBox").text(JSON.stringify(data, null, 2));
+        })
+        .fail(function () {
+          $("#localBox").text("載入失敗。");
         });
     });
   </script>
